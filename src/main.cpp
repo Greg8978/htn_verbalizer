@@ -11,6 +11,7 @@
 
 std::string clientName_ = "hatptester"; //Name should actually be the same as Michelangelo supervisor !!!
 msgClient client_;
+hatpPlan* plan_;
 
 bool initPlan(htn_verbalizer::Empty::Request &req,
         htn_verbalizer::Empty::Response & res) {
@@ -29,17 +30,17 @@ bool initPlan(htn_verbalizer::Empty::Request &req,
     }
 
     ROS_INFO("[htn_verbalizer][initPlan] plan received");
-    
+
     removeFormatting(answer);
     if (testInputValidity(answer)) {
-        hatpPlan plan(answer);
+        plan_ = new hatpPlan(answer);
 
         std::cout << "----- Plan : -----" << std::endl;
-        std::cout << plan.toString() << std::endl;
-    }else
+        std::cout << plan_->toString() << std::endl;
+    } else
         ROS_INFO("[htn_verbalizer][WARNING] unvalid plan received!");
-        
-    
+
+
     return true;
 }
 
@@ -55,9 +56,9 @@ int main(int argc, char ** argv) {
     // Init HATP client
     client_.connect(clientName_, "localhost", 5500);
 
-    
+
     //Services
-    ros::ServiceServer serviceinitPlan = node.advertiseService("htn_verbalizer/init_plan", initPlan);
+    ros::ServiceServer serviceInitPlan = node.advertiseService("htn_verbalizer/init_plan", initPlan);
     ROS_INFO("[Request] Ready to receive a plan.");
 
 
