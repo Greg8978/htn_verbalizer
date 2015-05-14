@@ -48,61 +48,109 @@ void tellTask(std::vector<std::string> agents, std::string task) {
 
     ss << getSubject(agents) << "have to " << task;
     soundClient_->say(ss.str());
+    printf("[saying] %s", ss.str().c_str());
     sleep(2);
+}
+
+std::vector<unsigned int> processNodesOnce(std::vector<unsigned int> currentNodes, unsigned int daddy, bool& stillNeeded) {
+    std::vector<unsigned int> processedNodes;
+
+    for (std::vector<unsigned int>::iterator it = currentNodes.begin(); it != currentNodes.end(); ++it) {
+        std::vector<unsigned int> children = plan_->getNode((*it))->getSubNodes();
+
+        // If 1 child, verbalize child instead!
+        if (children.size() == 1) {
+            processedNodes.push_back(children[0]);
+            stillNeeded = true;
+            continue;
+
+            // If recursive method, verbalize children instead!
+        } else if (plan_->getNode((*it))->getName() == plan_->getNode(daddy)->getName()
+                && plan_->getNode((*it))->getParameters() == plan_->getNode(daddy)->getParameters()) {
+            for (std::vector<unsigned int>::iterator itChildren = children.begin(); itChildren != children.end(); ++itChildren)
+                processedNodes.push_back((*itChildren));
+            stillNeeded = true;
+            continue;
+        } else {
+            processedNodes.push_back((*it));
+        }
+    }
+    return processedNodes;
+}
+
+std::vector<unsigned int> processNodes(std::vector<unsigned int> currentNodes, unsigned int daddy) {
+    std::vector<unsigned int> processedNodes;
+    bool processStillNeeded = false;
+
+    processedNodes = processNodesOnce(currentNodes, daddy, processStillNeeded);
+
+    while (processStillNeeded) {
+        processStillNeeded = false;
+        processedNodes = processNodesOnce(processedNodes, daddy, processStillNeeded);
+    }
+    return processedNodes;
 }
 
 void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy, double knowledgeThreshold) {
     //TODO: Implement this function!
     if (!currentNodes.empty()) {
-        std::stringstream ss;
         std::queue< std::vector< unsigned int > > queueChildren;
         std::queue< unsigned int > queueDaddies;
+        std::vector<unsigned int> processedNodes;
 
-        for (std::vector<unsigned int>::iterator it = currentNodes.begin(); it != currentNodes.end(); ++it) {
+        //pre processing
+        processedNodes = processNodes(currentNodes, daddy);
+
+
+        for (std::vector<unsigned int>::iterator it = processedNodes.begin(); it != processedNodes.end(); ++it) {
+            std::stringstream ss;
+            printf("verbalizing nodes, current %d\n", (*it));
             // Children
             std::vector<unsigned int> children = plan_->getNode((*it))->getSubNodes();
 
-            // If 1 child, verbalize child instead!
-            if (children.size() == 1) {
-                //TODO: Is this ok while iterating on currentNodes?
-                currentNodes.insert(it + 1, children[0]);
-                continue;
-
-                // If recursive method, verbalize children instead!
-            } else if (plan_->getNode((*it))->getName() == plan_->getNode(daddy)->getName()
-                    && plan_->getNode((*it))->getParameters() == plan_->getNode(daddy)->getParameters()) {
-                //TODO: Is this ok while iterating on currentNodes?
-                currentNodes.insert(it + 1, children.begin(), children.end());
-                continue;
-            }
-
-            if (it == currentNodes.begin()) {
+            if (it == processedNodes.begin()) {
                 ss << "To " << plan_->getNode(daddy)->getName() << ", " <<
                         getSubject(plan_->getNode((*it))->getAgents()) << "will first "
                         << plan_->getNode((*it))->getName();
+
+                soundClient_->say(ss.str());
+                printf("[saying] %s", ss.str().c_str());
+                sleep(4);
+
+                //If not enough knowledge, explain sub nodes
                 if (getKnowledge((*it)) < knowledgeThreshold) {
                     queueChildren.push(plan_->getNode((*it))->getSubNodes());
                     queueDaddies.push((*it));
                 }
-            } else if (it != currentNodes.end()) {
-
+            } else if (it != processedNodes.end()) {
                 ss << "Then " << getSubject(plan_->getNode((*it))->getAgents()) << "will "
                         << plan_->getNode((*it))->getName();
+
+                soundClient_->say(ss.str());
+                printf("[saying] %s", ss.str().c_str());
+                sleep(4);
+
+                //If not enough knowledge, explain sub nodes
                 if (getKnowledge((*it)) < knowledgeThreshold) {
                     queueChildren.push(plan_->getNode((*it))->getSubNodes());
                     queueDaddies.push((*it));
                 }
             } else {
-
                 ss << "Finally " << getSubject(plan_->getNode((*it))->getAgents()) << "will "
                         << plan_->getNode((*it))->getName();
+
+                soundClient_->say(ss.str());
+                printf("[saying] %s", ss.str().c_str());
+                sleep(4);
+
+                //If not enough knowledge, explain sub nodes
                 if (getKnowledge((*it)) < knowledgeThreshold) {
                     queueChildren.push(plan_->getNode((*it))->getSubNodes());
                     queueDaddies.push((*it));
                 }
             }
         }
-        while(!queueDaddies.empty()){
+        while (!queueDaddies.empty()) {
             // TODO: lower the threshold with the depth?
             verbalizeNodes(queueChildren.front(), queueDaddies.front(), knowledgeThreshold);
             queueChildren.pop();
@@ -120,9 +168,12 @@ bool verbalizeTree(unsigned int n, double knowledgeThreshold) {
 
         tellTask(agents, task);
 
+        printf("Task verbalized\n");
+
         if (getKnowledge(n) < knowledgeThreshold)
             verbalizeNodes(plan_->getNode(n)->getSubNodes(), n, knowledgeThreshold);
 
+        printf("tree verbalized\n");
         return true;
     }
 }
@@ -170,6 +221,7 @@ bool initSpeech(htn_verbalizer::Empty::Request &req,
         }
 
         soundClient_->say(ss.str());
+        printf("[saying] %s", ss.str().c_str());
         sleep(2);
 
 
@@ -185,7 +237,7 @@ bool initSpeech(htn_verbalizer::Empty::Request &req,
 bool verbalizeCurrentPlan(htn_verbalizer::VerbalizeTree::Request &req,
         htn_verbalizer::VerbalizeTree::Response & res) {
 
-    if (plan_ != NULL)
+    if (plan_ == NULL)
         ROS_INFO("[htn_verbalizer][verbalizeCurrentPlan][WARNING] no plan, use init_plan request!");
     else {
         verbalizeTree(plan_->getTree()->getRootNode()->getID(), req.knowledgeThreshold);
