@@ -6,6 +6,7 @@
 
 
 #include <ros/ros.h>
+#include <queue>
 #include "htn_verbalizer/Empty.h"
 #include "htn_verbalizer/VerbalizeTree.h"
 
@@ -14,37 +15,100 @@ std::string clientName_ = "hatptester"; //Name should actually be the same as Mi
 msgClient client_;
 hatpPlan* plan_;
 sound_play::SoundClient* soundClient_;
+unsigned int nbPartners_ = 0; // This is use so that robot will say "you" if 1 partner and tell name if more than 1
 
 //if(getKnowledge(plan_->getNode(n)->getName(), plan_->getNode(n)->getParameters());
 
-double getKnowledge(std::string nodeName, std::vector<std::string> parameters) {
+std::string getSubject(std::vector<std::string> agents) {
+    if (agents.size() < 2)
+        if (agents[0] == "Robot")
+            return "I ";
+        else
+            return "You ";
+    else if (std::find(agents.begin(), agents.end(), "Robot") != agents.end())
+        return "We ";
+    else
+        return "You ";
+}
+
+double getKnowledge(unsigned int id) {
     //TODO: implement this function!
+    hatpNode* node = plan_->getNode(id);
+    std::vector<std::string> agents = node->getAgents();
+
+    if (agents.size() == 1)
+        if (agents[0] == "Robot")
+            return 1.0;
+
     return 0.0;
 }
 
-void tellGoal(std::vector<std::string> agents, std::string task) {
-    std::string subjectSpeech;
+void tellTask(std::vector<std::string> agents, std::string task) {
     std::stringstream ss;
 
-    if (agents.size() < 2)
-        if (agents[0] == "Robot")
-            subjectSpeech = "I ";
-        else
-            subjectSpeech = "You ";
-    else if (std::find(agents.begin(), agents.end(), "Robot") != agents.end())
-        subjectSpeech = "We ";
-    else
-        subjectSpeech = "You ";
-
-
-    ss << subjectSpeech << "have to " << task;
-
+    ss << getSubject(agents) << "have to " << task;
     soundClient_->say(ss.str());
     sleep(2);
 }
 
-void verbalizeNodes(std::vector<unsigned int> currentNodes) {
-//TODO: Implement this function!
+void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy, double knowledgeThreshold) {
+    //TODO: Implement this function!
+    if (!currentNodes.empty()) {
+        std::stringstream ss;
+        std::queue< std::vector< unsigned int > > queueChildren;
+        std::queue< unsigned int > queueDaddies;
+
+        for (std::vector<unsigned int>::iterator it = currentNodes.begin(); it != currentNodes.end(); ++it) {
+            // Children
+            std::vector<unsigned int> children = plan_->getNode((*it))->getSubNodes();
+
+            // If 1 child, verbalize child instead!
+            if (children.size() == 1) {
+                //TODO: Is this ok while iterating on currentNodes?
+                currentNodes.insert(it + 1, children[0]);
+                continue;
+
+                // If recursive method, verbalize children instead!
+            } else if (plan_->getNode((*it))->getName() == plan_->getNode(daddy)->getName()
+                    && plan_->getNode((*it))->getParameters() == plan_->getNode(daddy)->getParameters()) {
+                //TODO: Is this ok while iterating on currentNodes?
+                currentNodes.insert(it + 1, children.begin(), children.end());
+                continue;
+            }
+
+            if (it == currentNodes.begin()) {
+                ss << "To " << plan_->getNode(daddy)->getName() << ", " <<
+                        getSubject(plan_->getNode((*it))->getAgents()) << "will first "
+                        << plan_->getNode((*it))->getName();
+                if (getKnowledge((*it)) < knowledgeThreshold) {
+                    queueChildren.push(plan_->getNode((*it))->getSubNodes());
+                    queueDaddies.push((*it));
+                }
+            } else if (it != currentNodes.end()) {
+
+                ss << "Then " << getSubject(plan_->getNode((*it))->getAgents()) << "will "
+                        << plan_->getNode((*it))->getName();
+                if (getKnowledge((*it)) < knowledgeThreshold) {
+                    queueChildren.push(plan_->getNode((*it))->getSubNodes());
+                    queueDaddies.push((*it));
+                }
+            } else {
+
+                ss << "Finally " << getSubject(plan_->getNode((*it))->getAgents()) << "will "
+                        << plan_->getNode((*it))->getName();
+                if (getKnowledge((*it)) < knowledgeThreshold) {
+                    queueChildren.push(plan_->getNode((*it))->getSubNodes());
+                    queueDaddies.push((*it));
+                }
+            }
+        }
+        while(!queueDaddies.empty()){
+            // TODO: lower the threshold with the depth?
+            verbalizeNodes(queueChildren.front(), queueDaddies.front(), knowledgeThreshold);
+            queueChildren.pop();
+            queueDaddies.pop();
+        }
+    }
 }
 
 bool verbalizeTree(unsigned int n, double knowledgeThreshold) {
@@ -54,10 +118,10 @@ bool verbalizeTree(unsigned int n, double knowledgeThreshold) {
         std::vector<std::string> agents = plan_->getNode(n)->getAgents();
         std::string task = plan_->getNode(n)->getName();
 
-        tellGoal(agents, task);
+        tellTask(agents, task);
 
-        if (getKnowledge(plan_->getNode(n)->getName(), plan_->getNode(n)->getParameters()) < knowledgeThreshold)
-            verbalizeNodes(plan_->getNode(n)->getSubNodes());
+        if (getKnowledge(n) < knowledgeThreshold)
+            verbalizeNodes(plan_->getNode(n)->getSubNodes(), n, knowledgeThreshold);
 
         return true;
     }
@@ -99,8 +163,6 @@ bool initSpeech(htn_verbalizer::Empty::Request &req,
         std::stringstream ss;
 
         agents = plan_->getTree()->getRootNode()->getAgents();
-
-
 
         for (std::vector<std::string>::iterator it = agents.begin(); it != agents.end(); ++it) {
             if ((*it) != "Robot")
