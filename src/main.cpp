@@ -12,6 +12,7 @@
 std::string clientName_ = "hatptester"; //Name should actually be the same as Michelangelo supervisor !!!
 msgClient client_;
 hatpPlan* plan_;
+sound_play::SoundClient* soundClient_;
 
 bool initPlan(htn_verbalizer::Empty::Request &req,
         htn_verbalizer::Empty::Response & res) {
@@ -22,7 +23,7 @@ bool initPlan(htn_verbalizer::Empty::Request &req,
 
     if (client_.isConnected()) {
         std::pair<std::string, std::string> result = client_.getBlockingMessage();
-        std::cout << "#### Answer : \n" << result.second << std::endl;
+        //std::cout << "#### Answer : \n" << result.second << std::endl;
         answer = result.second;
     } else {
         ROS_INFO("[htn_verbalizer][WARNING] client not connected!");
@@ -35,13 +36,48 @@ bool initPlan(htn_verbalizer::Empty::Request &req,
     if (testInputValidity(answer)) {
         plan_ = new hatpPlan(answer);
 
-        std::cout << "----- Plan : -----" << std::endl;
-        std::cout << plan_->toString() << std::endl;
     } else
         ROS_INFO("[htn_verbalizer][WARNING] unvalid plan received!");
 
-
     return true;
+}
+
+bool initSpeech(htn_verbalizer::Empty::Request &req,
+        htn_verbalizer::Empty::Response & res) {
+
+    if (plan_ != NULL) {
+        std::vector<std::string> agents;
+        std::string subjectSpeech;
+        std::string task;
+        std::stringstream ss;
+
+        agents = plan_->getTree()->getRootNode()->getAgents();
+
+        if (agents.size() < 2)
+            if (agents[0] == "Robot")
+                subjectSpeech = "I ";
+            else
+                subjectSpeech = "You ";
+        else if (std::find(agents.begin(), agents.end(), "Robot") != agents.end())
+            subjectSpeech = "We ";
+        else
+            subjectSpeech = "You ";
+
+        task = plan_->getTree()->getRootNode()->getName();
+
+        for (std::vector<std::string>::iterator it = agents.begin(); it != agents.end(); ++it) {
+            if ((*it) != "Robot")
+                ss << "Hello " << (*it) << "! ";
+        }
+
+        ss << subjectSpeech << "have to " << task;
+
+        soundClient_->say(ss.str());
+        sleep(2);
+    } else {
+        soundClient_->say("Hello, I will compute a plan for us to complete the task!");
+        sleep(2);
+    }
 }
 
 int main(int argc, char ** argv) {
@@ -50,9 +86,9 @@ int main(int argc, char ** argv) {
     ros::init(argc, argv, "htn_verbalizer");
 
     ros::NodeHandle node;
-    sound_play::SoundClient sc;
 
-
+    sound_play::SoundClient soundClient;
+    soundClient_ = &soundClient;
     // Init HATP client
     client_.connect(clientName_, "localhost", 5500);
 
@@ -61,14 +97,25 @@ int main(int argc, char ** argv) {
     ros::ServiceServer serviceInitPlan = node.advertiseService("htn_verbalizer/init_plan", initPlan);
     ROS_INFO("[Request] Ready to receive a plan.");
 
+    ros::ServiceServer serviceInitSpeech = node.advertiseService("htn_verbalizer/init_speech", initSpeech);
+    ROS_INFO("[Request] Ready to init speech.");
+
+
 
     // Set this in a ros service?
     ros::Rate loop_rate(30);
 
 
     while (node.ok()) {
-        sc.say("Hello world!");
+        //soundClient_.say("Hello world!");
         sleep(2);
+
+        //if (plan_ != NULL) {
+        //    std::cout << "----- Plan : -----" << std::endl;
+        //    std::cout << plan_->toString() << std::endl;
+        //}
+
+        ros::spinOnce();
 
         loop_rate.sleep();
 
