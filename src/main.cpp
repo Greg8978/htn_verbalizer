@@ -17,7 +17,47 @@ hatpPlan* plan_;
 sound_play::SoundClient* soundClient_;
 unsigned int nbPartners_ = 0; // This is use so that robot will say "you" if 1 partner and tell name if more than 1
 
-//if(getKnowledge(plan_->getNode(n)->getName(), plan_->getNode(n)->getParameters());
+/*std::map<std::string, std::string> PlanToSpeech_;
+
+
+std::string initPlanNamesToSpeech() {
+
+    PlanToSpeech_["Blue_Cube"] = "blue cube ";
+    PlanToSpeech_["Red_Cube"] = "red cube ";
+    PlanToSpeech_["Green_Cube"] = "green cube ";
+}
+ */
+
+
+std::string planNamesToSpeech(std::string plan) {
+
+    if (plan == "Blue_Cube")
+        return "blue cube ";
+    else if (plan == "Red_Cube")
+        return "red cube ";
+    else if (plan == "Green_Cube")
+        return "green cube ";
+    else if (plan == "Stickers")
+        return "put stickers on ";
+    else
+        return plan;
+}
+
+std::string nodeToText(unsigned int id) {
+    std::stringstream ss;
+
+    if (plan_->getNode(id)->getName() == "Handle")
+        ss << "handl the " << planNamesToSpeech(plan_->getNode(id)->getParameters()[1]);
+    else if (plan_->getNode(id)->getName() == "PlaceOnStack")
+        ss << "place the " << planNamesToSpeech(plan_->getNode(id)->getParameters()[1]) << "on the stack ";
+    else if (plan_->getNode(id)->getName() == "Pick")
+        ss << "pick the " << planNamesToSpeech(plan_->getNode(id)->getParameters()[1]);
+    else if (plan_->getNode(id)->getName() == "HandleOperation")
+        ss << planNamesToSpeech(plan_->getNode(id)->getParameters()[2]) << " the " << planNamesToSpeech(plan_->getNode(id)->getParameters()[1]);
+    else
+        ss << planNamesToSpeech(plan_->getNode(id)->getName());
+    return ss.str();
+}
 
 std::string getSubject(std::vector<std::string> agents) {
     if (agents.size() < 2)
@@ -48,7 +88,7 @@ void tellTask(std::vector<std::string> agents, std::string task) {
 
     ss << getSubject(agents) << "have to " << task;
     soundClient_->say(ss.str());
-    printf("[saying] %s", ss.str().c_str());
+    printf("[saying] %s\n", ss.str().c_str());
     sleep(2);
 }
 
@@ -104,17 +144,17 @@ void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy, 
 
         for (std::vector<unsigned int>::iterator it = processedNodes.begin(); it != processedNodes.end(); ++it) {
             std::stringstream ss;
-            printf("verbalizing nodes, current %d\n", (*it));
+            //printf("verbalizing nodes, current %d\n", (*it));
             // Children
             std::vector<unsigned int> children = plan_->getNode((*it))->getSubNodes();
 
             if (it == processedNodes.begin()) {
-                ss << "To " << plan_->getNode(daddy)->getName() << ", " <<
+                ss << "To " << nodeToText(daddy) << ", " <<
                         getSubject(plan_->getNode((*it))->getAgents()) << "will first "
-                        << plan_->getNode((*it))->getName();
+                        << nodeToText((*it));
 
                 soundClient_->say(ss.str());
-                printf("[saying] %s", ss.str().c_str());
+                printf("[saying] %s\n", ss.str().c_str());
                 sleep(4);
 
                 //If not enough knowledge, explain sub nodes
@@ -122,13 +162,13 @@ void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy, 
                     queueChildren.push(plan_->getNode((*it))->getSubNodes());
                     queueDaddies.push((*it));
                 }
-            } else if (it != processedNodes.end()) {
+            } else if ( ( (*it) != processedNodes.back() ) || ( (*it) == processedNodes[1] ) ) {
                 ss << "Then " << getSubject(plan_->getNode((*it))->getAgents()) << "will "
-                        << plan_->getNode((*it))->getName();
+                        << nodeToText((*it));
 
                 soundClient_->say(ss.str());
-                printf("[saying] %s", ss.str().c_str());
-                sleep(4);
+                printf("[saying] %s\n", ss.str().c_str());
+                sleep(3);
 
                 //If not enough knowledge, explain sub nodes
                 if (getKnowledge((*it)) < knowledgeThreshold) {
@@ -137,11 +177,11 @@ void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy, 
                 }
             } else {
                 ss << "Finally " << getSubject(plan_->getNode((*it))->getAgents()) << "will "
-                        << plan_->getNode((*it))->getName();
+                        << nodeToText((*it));
 
                 soundClient_->say(ss.str());
-                printf("[saying] %s", ss.str().c_str());
-                sleep(4);
+                printf("[saying] %s\n", ss.str().c_str());
+                sleep(3);
 
                 //If not enough knowledge, explain sub nodes
                 if (getKnowledge((*it)) < knowledgeThreshold) {
@@ -221,7 +261,7 @@ bool initSpeech(htn_verbalizer::Empty::Request &req,
         }
 
         soundClient_->say(ss.str());
-        printf("[saying] %s", ss.str().c_str());
+        printf("[saying] %s\n", ss.str().c_str());
         sleep(2);
 
 
