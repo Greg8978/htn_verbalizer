@@ -7,12 +7,61 @@
 
 #include <ros/ros.h>
 #include "htn_verbalizer/Empty.h"
+#include "htn_verbalizer/VerbalizeTree.h"
 
 
 std::string clientName_ = "hatptester"; //Name should actually be the same as Michelangelo supervisor !!!
 msgClient client_;
 hatpPlan* plan_;
 sound_play::SoundClient* soundClient_;
+
+//if(getKnowledge(plan_->getNode(n)->getName(), plan_->getNode(n)->getParameters());
+
+double getKnowledge(std::string nodeName, std::vector<std::string> parameters) {
+    //TODO: implement this function!
+    return 0.0;
+}
+
+void tellGoal(std::vector<std::string> agents, std::string task) {
+    std::string subjectSpeech;
+    std::stringstream ss;
+
+    if (agents.size() < 2)
+        if (agents[0] == "Robot")
+            subjectSpeech = "I ";
+        else
+            subjectSpeech = "You ";
+    else if (std::find(agents.begin(), agents.end(), "Robot") != agents.end())
+        subjectSpeech = "We ";
+    else
+        subjectSpeech = "You ";
+
+
+    ss << subjectSpeech << "have to " << task;
+
+    soundClient_->say(ss.str());
+    sleep(2);
+}
+
+void verbalizeNodes(std::vector<unsigned int> currentNodes) {
+//TODO: Implement this function!
+}
+
+bool verbalizeTree(unsigned int n, double knowledgeThreshold) {
+    if (plan_ == NULL)
+        return false;
+    else {
+        std::vector<std::string> agents = plan_->getNode(n)->getAgents();
+        std::string task = plan_->getNode(n)->getName();
+
+        tellGoal(agents, task);
+
+        if (getKnowledge(plan_->getNode(n)->getName(), plan_->getNode(n)->getParameters()) < knowledgeThreshold)
+            verbalizeNodes(plan_->getNode(n)->getSubNodes());
+
+        return true;
+    }
+}
 
 bool initPlan(htn_verbalizer::Empty::Request &req,
         htn_verbalizer::Empty::Response & res) {
@@ -47,37 +96,39 @@ bool initSpeech(htn_verbalizer::Empty::Request &req,
 
     if (plan_ != NULL) {
         std::vector<std::string> agents;
-        std::string subjectSpeech;
-        std::string task;
         std::stringstream ss;
 
         agents = plan_->getTree()->getRootNode()->getAgents();
 
-        if (agents.size() < 2)
-            if (agents[0] == "Robot")
-                subjectSpeech = "I ";
-            else
-                subjectSpeech = "You ";
-        else if (std::find(agents.begin(), agents.end(), "Robot") != agents.end())
-            subjectSpeech = "We ";
-        else
-            subjectSpeech = "You ";
 
-        task = plan_->getTree()->getRootNode()->getName();
 
         for (std::vector<std::string>::iterator it = agents.begin(); it != agents.end(); ++it) {
             if ((*it) != "Robot")
                 ss << "Hello " << (*it) << "! ";
         }
 
-        ss << subjectSpeech << "have to " << task;
-
         soundClient_->say(ss.str());
         sleep(2);
+
+
+        return true;
     } else {
-        soundClient_->say("Hello, I will compute a plan for us to complete the task!");
-        sleep(2);
+        ROS_INFO("[htn_verbalizer][initSpeech][WARNING] no plan, use init_plan request!");
+        //soundClient_->say("Hello, I will compute a plan for us to complete the task!");
+        //sleep(2);
+        return false;
     }
+}
+
+bool verbalizeCurrentPlan(htn_verbalizer::VerbalizeTree::Request &req,
+        htn_verbalizer::VerbalizeTree::Response & res) {
+
+    if (plan_ != NULL)
+        ROS_INFO("[htn_verbalizer][verbalizeCurrentPlan][WARNING] no plan, use init_plan request!");
+    else {
+        verbalizeTree(plan_->getTree()->getRootNode()->getID(), req.knowledgeThreshold);
+    }
+
 }
 
 int main(int argc, char ** argv) {
@@ -100,6 +151,8 @@ int main(int argc, char ** argv) {
     ros::ServiceServer serviceInitSpeech = node.advertiseService("htn_verbalizer/init_speech", initSpeech);
     ROS_INFO("[Request] Ready to init speech.");
 
+    ros::ServiceServer serviceVerbCurrent = node.advertiseService("htn_verbalizer/verbalize_current_plan", verbalizeCurrentPlan);
+    ROS_INFO("[Request] Ready to verbalize current plan.");
 
 
     // Set this in a ros service?
