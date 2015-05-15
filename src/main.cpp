@@ -10,11 +10,15 @@
 #include "htn_verbalizer/Empty.h"
 #include "htn_verbalizer/VerbalizeTree.h"
 
+#include "toaster_msgs/GetFactValue.h"
+#include "toaster_msgs/Fact.h"
+
 
 std::string clientName_ = "hatptester"; //Name should actually be the same as Michelangelo supervisor !!!
-msgClient client_;
+msgClient hatpClient_;
 hatpPlan* plan_;
 sound_play::SoundClient* soundClient_;
+ros::ServiceClient* knowledgeClient_;
 unsigned int nbPartners_ = 0; // This is use so that robot will say "you" if 1 partner and tell name if more than 1
 
 /*std::map<std::string, std::string> PlanToSpeech_;
@@ -28,6 +32,46 @@ std::string initPlanNamesToSpeech() {
 }
  */
 
+std::string getParameterClass(std::string object) {
+    if ("Green_Cube" || "Blue_Cube" || "Red_Cube")
+        return "Cubes";
+    else
+        return object;
+}
+
+std::string planToKnowledge(std::string name) {
+    if (name == "Human_1")
+        return "HERAKLES_HUMAN1";
+    else if (name == "Human_2")
+        return "HERAKLES_HUMAN2";
+    else if (name == "Robot")
+        return "pr2";
+    else if (name == "Blue_Cube")
+        return "BlueCube ";
+    else if (name == "Red_Cube")
+        return "RedCube";
+    else if (name == "Green_Cube")
+        return "GreenCube";
+    else
+        return name;
+}
+
+std::string planToKnowledge(unsigned int id) {
+    std::stringstream ss;
+
+    // Some knowledge apply to class of objects, other on object itself
+    if (plan_->getNode(id)->getName() == "Handle")
+        ss << plan_->getNode(id)->getName() << "_" << planToKnowledge(plan_->getNode(id)->getParameters()[1]);
+    else if (plan_->getNode(id)->getName() == "PlaceOnStack")
+        ss << plan_->getNode(id)->getName() << "_" << getParameterClass(plan_->getNode(id)->getParameters()[1]);
+    else if (plan_->getNode(id)->getName() == "Pick")
+        ss << plan_->getNode(id)->getName() << "_" << getParameterClass(plan_->getNode(id)->getParameters()[1]);
+    else if (plan_->getNode(id)->getName() == "HandleOperation")
+        ss << planToKnowledge(plan_->getNode(id)->getParameters()[2]) << "_" << getParameterClass(plan_->getNode(id)->getParameters()[1]);
+    else
+        ss << plan_->getNode(id)->getName();
+    return ss.str();
+}
 
 std::string planNamesToSpeech(std::string plan) {
 
@@ -71,16 +115,50 @@ std::string getSubject(std::vector<std::string> agents) {
         return "You ";
 }
 
+// We decide here:
+// -> to return 1.0 if it concerns only Robot
+// -> to return the lower knowledge value if it concerns several agents
+
 double getKnowledge(unsigned int id) {
     //TODO: implement this function!
     hatpNode* node = plan_->getNode(id);
     std::vector<std::string> agents = node->getAgents();
+    std::string agent;
 
-    if (agents.size() == 1)
-        if (agents[0] == "Robot")
+    double knowledge = 1.0;
+    double curKnowledge = 0.0;
+
+    if (agents.size() == 1) {
+        if (agents[0] == "Robot") {
             return 1.0;
+        }
+    } else {
+        std::vector<std::string>::iterator it = std::find(agents.begin(), agents.end(), "Robot");
+        if (it != agents.end()) {
+            agents.erase(it);
+        }
+    }
 
-    return 0.0;
+    for (std::vector<std::string>::iterator it = agents.begin(); it != agents.end(); ++it) {
+
+        toaster_msgs::GetFactValue getKnowledge;
+        getKnowledge.request.agentName = planToKnowledge("Robot");
+        getKnowledge.request.reqFact.property = planToKnowledge(id);
+        getKnowledge.request.reqFact.subjectName = planToKnowledge((*it));
+
+        ROS_INFO("[Request] we request knowledge in Robot model: %s %s \n", planToKnowledge((*it)).c_str(), planToKnowledge(id).c_str());
+
+        if (knowledgeClient_->call(getKnowledge)) {
+            // If this agent has less knowledge, we keep his level
+            curKnowledge = getKnowledge.response.resFact.doubleValue;
+
+            if (curKnowledge == 0.0)
+                return 0.0;
+            else
+                knowledge = curKnowledge;
+        }
+    }
+    return knowledge;
 }
 
 void tellTask(std::vector<std::string> agents, std::string task) {
@@ -88,8 +166,8 @@ void tellTask(std::vector<std::string> agents, std::string task) {
 
     ss << getSubject(agents) << "have to " << task;
     soundClient_->say(ss.str());
+    sleep(3);
     printf("[saying] %s\n", ss.str().c_str());
-    sleep(2);
 }
 
 std::vector<unsigned int> processNodesOnce(std::vector<unsigned int> currentNodes, unsigned int daddy, bool& stillNeeded) {
@@ -162,7 +240,7 @@ void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy, 
                     queueChildren.push(plan_->getNode((*it))->getSubNodes());
                     queueDaddies.push((*it));
                 }
-            } else if ( ( (*it) != processedNodes.back() ) || ( (*it) == processedNodes[1] ) ) {
+            } else if (((*it) != processedNodes.back()) || ((*it) == processedNodes[1])) {
                 ss << "Then " << getSubject(plan_->getNode((*it))->getAgents()) << "will "
                         << nodeToText((*it));
 
@@ -225,8 +303,8 @@ bool initPlan(htn_verbalizer::Empty::Request &req,
 
     std::string answer;
 
-    if (client_.isConnected()) {
-        std::pair<std::string, std::string> result = client_.getBlockingMessage();
+    if (hatpClient_.isConnected()) {
+        std::pair<std::string, std::string> result = hatpClient_.getBlockingMessage();
         //std::cout << "#### Answer : \n" << result.second << std::endl;
         answer = result.second;
     } else {
@@ -295,7 +373,11 @@ int main(int argc, char ** argv) {
     sound_play::SoundClient soundClient;
     soundClient_ = &soundClient;
     // Init HATP client
-    client_.connect(clientName_, "localhost", 5500);
+    hatpClient_.connect(clientName_, "localhost", 5500);
+
+
+    ros::ServiceClient knowledgeClient = node.serviceClient<toaster_msgs::GetFactValue>("/belief_manager/get_fact_value", true);
+    knowledgeClient_ = &knowledgeClient;
 
 
     //Services
@@ -315,7 +397,7 @@ int main(int argc, char ** argv) {
 
     while (node.ok()) {
         //soundClient_.say("Hello world!");
-        sleep(2);
+        //sleep(2);
 
         //if (plan_ != NULL) {
         //    std::cout << "----- Plan : -----" << std::endl;
