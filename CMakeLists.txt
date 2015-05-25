@@ -62,7 +62,7 @@ find_package(Boost REQUIRED COMPONENTS regex system)
  add_service_files(
    FILES
    Empty.srv
-   VerbalizeTree.srv
+   NodeParam.srv
  )
 
 ## Generate actions in the 'action' folder
