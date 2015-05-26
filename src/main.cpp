@@ -15,10 +15,10 @@
 #include "toaster_msgs/Fact.h"
 
 //acapela
-#include <chores/SayAction.h>
+#include "acapela/SayAction.h"
 #include <actionlib/client/simple_action_client.h>
 
-typedef actionlib::SimpleActionClient<chores::SayAction> AcapelaClient;
+typedef actionlib::SimpleActionClient<acapela::SayAction> AcapelaClient;
 
 AcapelaClient* AcapelaClient_;
 
@@ -34,16 +34,16 @@ ros::ServiceClient* setKnowledgeClient_;
 //unsigned int nbPartners_ = 0; // This is use so that robot will say "you" if 1 partner and tell name if more than 1
 
 bool acapelaSay(std::string message) {
-    chores::SayGoal goal;
-    goal = message;
-    AcapelaClient_.sendGoal(goal);
-    AcapelaClient_.waitForResult(ros::Duration(15.0));
+    acapela::SayGoal goal;
+    goal.message = message;
+    AcapelaClient_->sendGoal(goal);
+    AcapelaClient_->waitForResult(ros::Duration(15.0));
 
-    if (AcapelaClient_.getState() == actionlib::SimpleClientGoalState::SUCCEEDED) {
+    if (AcapelaClient_->getState() == actionlib::SimpleClientGoalState::SUCCEEDED) {
         printf("[said] %s\n", message.c_str());
         return true;
     } else {
-        printf("Current State: %s\n", AcapelaClient_.getState().toString().c_str());
+        printf("Current State: %s\n", AcapelaClient_->getState().toString().c_str());
         return false;
     }
 }

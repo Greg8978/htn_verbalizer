@@ -102,6 +102,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 # include_directories(include)
 include_directories(
+  include
   ${msgconnector_INCLUDE_DIRS}
   ${libhatp_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
