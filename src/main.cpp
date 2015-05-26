@@ -11,6 +11,7 @@
 #include "htn_verbalizer/NodeParam.h"
 
 #include "toaster_msgs/GetFactValue.h"
+#include "toaster_msgs/AddFact.h"
 #include "toaster_msgs/Fact.h"
 
 
@@ -18,7 +19,8 @@ std::string clientName_ = "hatptester"; //Name should actually be the same as Mi
 msgClient hatpClient_;
 hatpPlan* plan_;
 sound_play::SoundClient* soundClient_;
-ros::ServiceClient* knowledgeClient_;
+ros::ServiceClient* getKnowledgeClient_;
+ros::ServiceClient* setKnowledgeClient_;
 unsigned int nbPartners_ = 0; // This is use so that robot will say "you" if 1 partner and tell name if more than 1
 
 /*std::map<std::string, std::string> PlanToSpeech_;
@@ -151,16 +153,46 @@ std::string getKnowledge(unsigned int id) {
 
         ROS_INFO("[Request] we request knowledge in Robot model: %s %s \n", planToKnowledge((*it)).c_str(), planToKnowledge(id).c_str());
 
-        if (knowledgeClient_->call(getKnowledge)) {
+        if (getKnowledgeClient_->call(getKnowledge)) {
             // If this agent has less knowledge, we keep his level
             curKnowledge = getKnowledge.response.resFact.stringValue;
+
+            ROS_INFO("[Request] we found: \"%s\" \n", curKnowledge.c_str());
 
             if (curKnowledge == "unknown" || curKnowledge == "")
                 return "unknown";
         }
     }
-    ROS_INFO("[Request] we get knowledge in Robot model: %s \n", curKnowledge.c_str());
+    ROS_INFO("[Request] we got knowledge in Robot model: %s \n", curKnowledge.c_str());
     return curKnowledge;
+}
+
+bool updateKnowledge(std::string level, unsigned int nodeId) {
+    hatpNode* node = plan_->getNode(nodeId);
+    std::vector<std::string> agents = node->getAgents();
+    bool success = true;
+
+    for (std::vector<std::string>::iterator it = agents.begin(); it != agents.end(); ++it) {
+
+        if ((*it) == "Robot")
+            continue;
+
+        toaster_msgs::AddFact setKnowledge;
+        setKnowledge.request.fact.property = planToKnowledge(nodeId);
+        setKnowledge.request.fact.propertyType = "knowledge";
+        setKnowledge.request.fact.subProperty = "action";
+        setKnowledge.request.fact.subjectName = planToKnowledge((*it));
+        setKnowledge.request.fact.stringValue = level;
+
+        if (setKnowledgeClient_->call(setKnowledge)) {
+            ROS_INFO("[Request] we request to set knowledge in Robot model: %s %s %s \n", planToKnowledge((*it)).c_str(), planToKnowledge(nodeId).c_str(), level.c_str());
+        } else {
+            ROS_INFO("[Request] we failed to request to set knowledge in Robot model: %s %s %s \n", planToKnowledge((*it)).c_str(), planToKnowledge(nodeId).c_str(), level.c_str());
+            success = false;
+        }
+
+    }
+    return success;
 }
 
 void tellTask(std::vector<std::string> agents, std::string task) {
@@ -271,6 +303,10 @@ void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy) 
                 }
             }
         }
+
+        //All children nodes were explained, update db:
+        updateKnowledge("theoretical", daddy);
+
         while (!queueDaddies.empty()) {
             // TODO: lower the threshold with the depth?
             // When we go deeper, we make a pose to understand we go deeper
@@ -491,8 +527,11 @@ int main(int argc, char ** argv) {
     hatpClient_.connect(clientName_, "localhost", 5500);
 
 
-    ros::ServiceClient knowledgeClient = node.serviceClient<toaster_msgs::GetFactValue>("/belief_manager/get_fact_value", true);
-    knowledgeClient_ = &knowledgeClient;
+    ros::ServiceClient getKnowledgeClient = node.serviceClient<toaster_msgs::GetFactValue>("/belief_manager/get_fact_value", true);
+    getKnowledgeClient_ = &getKnowledgeClient;
+
+    ros::ServiceClient setKnowledgeClient = node.serviceClient<toaster_msgs::AddFact>("/belief_manager/add_fact", true);
+    setKnowledgeClient_ = &setKnowledgeClient;
 
 
     //Services
