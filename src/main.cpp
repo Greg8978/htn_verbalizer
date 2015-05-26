@@ -14,25 +14,39 @@
 #include "toaster_msgs/AddFact.h"
 #include "toaster_msgs/Fact.h"
 
+//acapela
+#include <chores/SayAction.h>
+#include <actionlib/client/simple_action_client.h>
+
+typedef actionlib::SimpleActionClient<chores::SayAction> AcapelaClient;
+
+AcapelaClient* AcapelaClient_;
 
 std::string clientName_ = "hatptester"; //Name should actually be the same as Michelangelo supervisor !!!
 msgClient hatpClient_;
 hatpPlan* plan_;
-sound_play::SoundClient* soundClient_;
+
+//sound_play::SoundClient* soundClient_;
+
 ros::ServiceClient* getKnowledgeClient_;
 ros::ServiceClient* setKnowledgeClient_;
-unsigned int nbPartners_ = 0; // This is use so that robot will say "you" if 1 partner and tell name if more than 1
 
-/*std::map<std::string, std::string> PlanToSpeech_;
+//unsigned int nbPartners_ = 0; // This is use so that robot will say "you" if 1 partner and tell name if more than 1
 
+bool acapelaSay(std::string message) {
+    chores::SayGoal goal;
+    goal = message;
+    AcapelaClient_.sendGoal(goal);
+    AcapelaClient_.waitForResult(ros::Duration(15.0));
 
-std::string initPlanNamesToSpeech() {
-
-    PlanToSpeech_["Blue_Cube"] = "blue cube ";
-    PlanToSpeech_["Red_Cube"] = "red cube ";
-    PlanToSpeech_["Green_Cube"] = "green cube ";
+    if (AcapelaClient_.getState() == actionlib::SimpleClientGoalState::SUCCEEDED) {
+        printf("[said] %s\n", message.c_str());
+        return true;
+    } else {
+        printf("Current State: %s\n", AcapelaClient_.getState().toString().c_str());
+        return false;
+    }
 }
- */
 
 std::string getParameterClass(std::string object) {
     if ("Green_Cube" || "Blue_Cube" || "Red_Cube")
@@ -199,9 +213,7 @@ void tellTask(std::vector<std::string> agents, std::string task) {
     std::stringstream ss;
 
     ss << getSubject(agents) << "have to " << planNamesToSpeech(task);
-    soundClient_->say(ss.str());
-    sleep(3);
-    printf("[saying] %s\n", ss.str().c_str());
+    acapelaSay(ss.str());
 }
 
 std::vector<unsigned int> processNodesOnce(std::vector<unsigned int> currentNodes, unsigned int daddy, bool& stillNeeded) {
@@ -265,9 +277,7 @@ void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy) 
                         getSubject(plan_->getNode((*it))->getAgents()) << "will first "
                         << nodeToText((*it));
 
-                printf("[saying] %s\n", ss.str().c_str());
-                soundClient_->say(ss.str());
-                sleep(6);
+                acapelaSay(ss.str());
 
                 //If not enough knowledge, explain sub nodes
                 if (getKnowledge((*it)) == "unknown") {
@@ -278,9 +288,7 @@ void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy) 
                 ss << "Then " << getSubject(plan_->getNode((*it))->getAgents()) << "will "
                         << nodeToText((*it));
 
-                printf("[saying] %s\n", ss.str().c_str());
-                soundClient_->say(ss.str());
-                sleep(3);
+                acapelaSay(ss.str());
 
                 //If not enough knowledge, explain sub nodes
                 if (getKnowledge((*it)) == "unknown") {
@@ -291,10 +299,7 @@ void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy) 
                 ss << "Finally " << getSubject(plan_->getNode((*it))->getAgents()) << "will "
                         << nodeToText((*it));
 
-
-                printf("[saying] %s\n", ss.str().c_str());
-                soundClient_->say(ss.str());
-                sleep(3);
+                acapelaSay(ss.str());
 
                 //If not enough knowledge, explain sub nodes
                 if (getKnowledge((*it)) == "unknown") {
@@ -379,16 +384,12 @@ bool initSpeech(htn_verbalizer::Empty::Request &req,
                 ss << "Hello " << planNamesToSpeech((*it)) << "! ";
         }
 
-        printf("[saying] %s\n", ss.str().c_str());
-        soundClient_->say(ss.str());
-        sleep(2);
+        acapelaSay(ss.str());
 
 
         return true;
     } else {
         ROS_INFO("[htn_verbalizer][initSpeech][WARNING] no plan, use init_plan request!");
-        //soundClient_->say("Hello, I will compute a plan for us to complete the task!");
-        //sleep(2);
         return false;
     }
 }
@@ -414,9 +415,7 @@ bool rePlan(htn_verbalizer::NodeParam::Request &req,
                     << " ! Let me think about a new way to " << planNamesToSpeech(plan_->getTree()->getRootNode()->getName());
         }
 
-        printf("[saying] %s\n", ss.str().c_str());
-        soundClient_->say(ss.str());
-        sleep(5);
+        acapelaSay(ss.str());
 
         ROS_INFO("[htn_verbalizer][rePlan] Waiting for a plan");
 
@@ -442,10 +441,7 @@ bool rePlan(htn_verbalizer::NodeParam::Request &req,
             ss << " I found a way to " << planNamesToSpeech(plan_->getTree()->getRootNode()->getName())
                     << " from the current situation ";
 
-
-            printf("[saying] %s\n", ss.str().c_str());
-            soundClient_->say(ss.str());
-            sleep(5);
+            acapelaSay(ss.str());
 
             verbalizeTree(plan_->getTree()->getRootNode()->getID());
 
@@ -455,8 +451,6 @@ bool rePlan(htn_verbalizer::NodeParam::Request &req,
         return true;
     } else {
         ROS_INFO("[htn_verbalizer][initSpeech][WARNING] no plan, use init_plan request!");
-        //soundClient_->say("Hello, I will compute a plan for us to complete the task!");
-        //sleep(2);
         return false;
     }
 }
@@ -473,9 +467,8 @@ bool initExecution(htn_verbalizer::NodeParam::Request &req,
         std::stringstream ss;
 
         ss << getSubject(plan_->getNode(req.node)->getAgents()) << " will now " << planNamesToSpeech(plan_->getNode(req.node)->getName());
-        soundClient_->say(ss.str());
-        sleep(3);
-        printf("[saying] %s\n", ss.str().c_str());
+
+        acapelaSay(ss.str());
     }
     return true;
 }
@@ -496,9 +489,7 @@ bool endExecution(htn_verbalizer::NodeParam::Request &req,
 
         ss << getSubject(plan_->getNode(req.node)->getAgents()) << " finished to " << planNamesToSpeech(plan_->getNode(req.node)->getName());
 
-        soundClient_->say(ss.str());
-        sleep(5);
-        printf("[saying] %s\n", ss.str().c_str());
+        acapelaSay(ss.str());
     }
     return true;
 }
@@ -516,13 +507,10 @@ bool verbalizeCurrentPlan(htn_verbalizer::Empty::Request &req,
 
 int main(int argc, char ** argv) {
 
-
     ros::init(argc, argv, "htn_verbalizer");
 
     ros::NodeHandle node;
 
-    sound_play::SoundClient soundClient;
-    soundClient_ = &soundClient;
     // Init HATP client
     hatpClient_.connect(clientName_, "localhost", 5500);
 
@@ -532,6 +520,13 @@ int main(int argc, char ** argv) {
 
     ros::ServiceClient setKnowledgeClient = node.serviceClient<toaster_msgs::AddFact>("/belief_manager/add_fact", true);
     setKnowledgeClient_ = &setKnowledgeClient;
+
+    //acapela
+    AcapelaClient client("/acapela/Say", true);
+    client.waitForServer();
+
+    AcapelaClient_ = &client;
+
 
 
     //Services
