@@ -46,7 +46,7 @@ std::string getParameterClass(std::string object) {
         return "HERAKLES_HUMAN1";
     else if (name == "Human_2")
         return "HERAKLES_HUMAN2";
-    else if (name == "Robot")
+    else if (name == "PR2_ROBOT")
         return "pr2";
     else if (name == "Blue_Cube")
         return "BlueCube ";
@@ -77,21 +77,23 @@ std::string getParameterClass(std::string object) {
 
 std::string planToKnowledgeParam(unsigned int id) {
     std::stringstream ss;
-
+    ss << "";
     // Some knowledge apply to class of objects, other on object itself
 
-    for (std::vector<std::string>::iterator it = plan_->getNode(id)->getParameters().begin(); it != plan_->getNode(id)->getParameters().end(); ++it) {
+    for (int i = 0; i < plan_->getNode(id)->getParameters().size(); ++i) {
+        if ((plan_->getNode(id)->getParameters()[i]) == "HERAKLES_HUMAN1")
+            continue;
         if (plan_->getNode(id)->getName() == "PlaceOnStack" || plan_->getNode(id)->getName() == "Pick") {
-            if (getParameterClass(*it) == "Cubes") {
-                ss << getParameterClass((*it));
+            if (getParameterClass(plan_->getNode(id)->getParameters()[i]) == "Cubes") {
+                ss << getParameterClass(plan_->getNode(id)->getParameters()[i]) << "-";
             } else {
-                ss << (*it) << "-";
+                ss << plan_->getNode(id)->getParameters()[i] << "-";
             }
         } else {
-            ss << (*it) << "-";
+            ss << plan_->getNode(id)->getParameters()[i] << "-";
         }
-        return ss.str();
     }
+    return ss.str();
 }
 
 std::string planNamesToSpeech(std::string plan) {
@@ -130,27 +132,27 @@ std::string nodeToText(unsigned int id) {
 
 std::string getSubject(std::vector<std::string> agents) {
     if (agents.size() < 2)
-        if (agents[0] == "Robot")
+        if (agents[0] == "PR2_ROBOT")
             return "I ";
         else
             return "You ";
-    else if (std::find(agents.begin(), agents.end(), "Robot") != agents.end())
+    else if (std::find(agents.begin(), agents.end(), "PR2_ROBOT") != agents.end())
         return "We ";
     else
         return "You ";
 }
 
 // We decide here:
-// -> to return 1.0 if it concerns only Robot
+// -> to return 1.0 if it concerns only PR2_ROBOT
 // -> to return the lower knowledge value if it concerns several agents
 
 std::string getKnowledge(unsigned int id) {
     //TODO: implement this function!
     hatpNode* node = plan_->getNode(id);
     std::vector<std::string> agents = node->getAgents();
-    std::string agent;
 
     std::string curKnowledge = "unknown";
+    std::string params = planToKnowledgeParam(id);
 
     if (agents.size() == 1) {
         if (agents[0] == "PR2_ROBOT") {
@@ -169,9 +171,9 @@ std::string getKnowledge(unsigned int id) {
         getKnowledge.request.agentName = "pr2";
         getKnowledge.request.reqFact.property = node->getName();
         getKnowledge.request.reqFact.subjectName = (*it);
-        getKnowledge.request.reqFact.targetName = planToKnowledgeParam(id);
+        getKnowledge.request.reqFact.targetName = params;
 
-        ROS_INFO("[Request] we request knowledge in Robot model: %s %s \n", (*it).c_str(), planToKnowledgeParam(id).c_str());
+        ROS_INFO("[Request] we request knowledge in PR2_ROBOT model: %s %s \n", (*it).c_str(), params.c_str());
 
         if (getKnowledgeClient_->call(getKnowledge)) {
             // If this agent has less knowledge, we keep his level
@@ -183,7 +185,7 @@ std::string getKnowledge(unsigned int id) {
                 return "unknown";
         }
     }
-    ROS_INFO("[Request] we got knowledge in Robot model: %s \n", curKnowledge.c_str());
+    ROS_INFO("[Request] we got knowledge in PR2_ROBOT model: %s \n", curKnowledge.c_str());
     return curKnowledge;
 }
 
@@ -191,10 +193,11 @@ bool updateKnowledge(std::string level, unsigned int nodeId) {
     hatpNode* node = plan_->getNode(nodeId);
     std::vector<std::string> agents = node->getAgents();
     bool success = true;
+    std::string params = planToKnowledgeParam(nodeId);
 
     for (std::vector<std::string>::iterator it = agents.begin(); it != agents.end(); ++it) {
 
-        if ((*it) == "Robot")
+        if ((*it) == "PR2_ROBOT")
             continue;
 
         toaster_msgs::AddFact setKnowledge;
@@ -202,13 +205,13 @@ bool updateKnowledge(std::string level, unsigned int nodeId) {
         setKnowledge.request.fact.propertyType = "knowledge";
         setKnowledge.request.fact.subProperty = "action";
         setKnowledge.request.fact.subjectName = (*it);
-        setKnowledge.request.fact.targetName = planToKnowledgeParam(nodeId);
+        setKnowledge.request.fact.targetName = params;
         setKnowledge.request.fact.stringValue = level;
 
         if (setKnowledgeClient_->call(setKnowledge)) {
-            ROS_INFO("[Request] we request to set knowledge in Robot model: %s %s %s \n", (*it).c_str(), planToKnowledgeParam(nodeId).c_str(), level.c_str());
+            ROS_INFO("[Request] we request to set knowledge in PR2_ROBOT model: %s %s %s \n", (*it).c_str(), params.c_str(), level.c_str());
         } else {
-            ROS_INFO("[Request] we failed to request to set knowledge in Robot model: %s %s %s \n", (*it).c_str(), planToKnowledgeParam(nodeId).c_str(), level.c_str());
+            ROS_INFO("[Request] we failed to request to set knowledge in PR2_ROBOT model: %s %s %s \n", (*it).c_str(), params.c_str(), level.c_str());
             success = false;
         }
 
@@ -325,8 +328,6 @@ void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy) 
             }
         }
 
-        //All children nodes were explained, update db:
-        updateKnowledge("theoretical", daddy);
 
         while (!queueDaddies.empty()) {
             // TODO: lower the threshold with the depth?
@@ -336,6 +337,9 @@ void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy) 
             queueChildren.pop();
             queueDaddies.pop();
         }
+
+        //All children nodes were explained, update db:
+        updateKnowledge("theoretical", daddy);
     }
 }
 
@@ -396,7 +400,7 @@ bool initSpeech(htn_verbalizer::Empty::Request &req,
         agents = plan_->getTree()->getRootNode()->getAgents();
 
         for (std::vector<std::string>::iterator it = agents.begin(); it != agents.end(); ++it) {
-            if ((*it) != "Robot")
+            if ((*it) != "PR2_ROBOT")
                 ss << "Hello " << planNamesToSpeech((*it)) << "! ";
         }
 
@@ -512,7 +516,7 @@ bool endExecution(htn_verbalizer::NodeParam::Request &req,
     } else {
 
         std::stringstream ss;
-        if (plan_->getNode(req.node)->getAgents().front() != "Robot")
+        if (plan_->getNode(req.node)->getAgents().front() != "PR2_ROBOT")
             ss << " I see that ";
 
         ss << getSubject(plan_->getNode(req.node)->getAgents()) << " finished to " << planNamesToSpeech(plan_->getNode(req.node)->getName());
