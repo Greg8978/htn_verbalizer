@@ -41,7 +41,7 @@ std::string getParameterClass(std::string object) {
         return object;
 }
 
-std::string planToKnowledge(std::string name) {
+/*std::string planToKnowledge(std::string name) {
     if (name == "Human_1")
         return "HERAKLES_HUMAN1";
     else if (name == "Human_2")
@@ -56,9 +56,9 @@ std::string planToKnowledge(std::string name) {
         return "GreenCube";
     else
         return name;
-}
+}*/
 
-std::string planToKnowledge(unsigned int id) {
+/*std::string planToKnowledge(unsigned int id) {
     std::stringstream ss;
 
     // Some knowledge apply to class of objects, other on object itself
@@ -72,6 +72,16 @@ std::string planToKnowledge(unsigned int id) {
         ss << planToKnowledge(plan_->getNode(id)->getParameters()[2]) << "_" << getParameterClass(plan_->getNode(id)->getParameters()[1]);
     else
         ss << plan_->getNode(id)->getName();
+    return ss.str();
+}*/
+
+std::string planToKnowledgeParam(unsigned int id) {
+    std::stringstream ss;
+
+    // Some knowledge apply to class of objects, other on object itself
+
+    for (std::vector<std::string>::iterator it = plan_->getNode(id)->getParameters().begin(); it != plan_->getNode(id)->getParameters().end(); ++it)
+        ss << (*it) << "-";
     return ss.str();
 }
 
@@ -134,11 +144,11 @@ std::string getKnowledge(unsigned int id) {
     std::string curKnowledge = "unknown";
 
     if (agents.size() == 1) {
-        if (agents[0] == "Robot") {
+        if (agents[0] == "PR2_ROBOT") {
             return "theoretical";
         }
     } else {
-        std::vector<std::string>::iterator it = std::find(agents.begin(), agents.end(), "Robot");
+        std::vector<std::string>::iterator it = std::find(agents.begin(), agents.end(), "PR2_ROBOT");
         if (it != agents.end()) {
             agents.erase(it);
         }
@@ -147,11 +157,12 @@ std::string getKnowledge(unsigned int id) {
     for (std::vector<std::string>::iterator it = agents.begin(); it != agents.end(); ++it) {
 
         toaster_msgs::GetFactValue getKnowledge;
-        getKnowledge.request.agentName = planToKnowledge("Robot");
-        getKnowledge.request.reqFact.property = planToKnowledge(id);
-        getKnowledge.request.reqFact.subjectName = planToKnowledge((*it));
+        getKnowledge.request.agentName = "pr2";
+        getKnowledge.request.reqFact.property = node->getName();
+        getKnowledge.request.reqFact.subjectName = (*it);
+        getKnowledge.request.reqFact.targetName = planToKnowledgeParam(id);
 
-        ROS_INFO("[Request] we request knowledge in Robot model: %s %s \n", planToKnowledge((*it)).c_str(), planToKnowledge(id).c_str());
+        ROS_INFO("[Request] we request knowledge in Robot model: %s %s \n", (*it).c_str(), planToKnowledgeParam(id).c_str());
 
         if (getKnowledgeClient_->call(getKnowledge)) {
             // If this agent has less knowledge, we keep his level
@@ -178,16 +189,17 @@ bool updateKnowledge(std::string level, unsigned int nodeId) {
             continue;
 
         toaster_msgs::AddFact setKnowledge;
-        setKnowledge.request.fact.property = planToKnowledge(nodeId);
+        setKnowledge.request.fact.property = node->getName();
         setKnowledge.request.fact.propertyType = "knowledge";
         setKnowledge.request.fact.subProperty = "action";
-        setKnowledge.request.fact.subjectName = planToKnowledge((*it));
+        setKnowledge.request.fact.subjectName = (*it);
+        setKnowledge.request.fact.targetName = planToKnowledgeParam(nodeId);
         setKnowledge.request.fact.stringValue = level;
 
         if (setKnowledgeClient_->call(setKnowledge)) {
-            ROS_INFO("[Request] we request to set knowledge in Robot model: %s %s %s \n", planToKnowledge((*it)).c_str(), planToKnowledge(nodeId).c_str(), level.c_str());
+            ROS_INFO("[Request] we request to set knowledge in Robot model: %s %s %s \n", (*it).c_str(), planToKnowledgeParam(nodeId).c_str(), level.c_str());
         } else {
-            ROS_INFO("[Request] we failed to request to set knowledge in Robot model: %s %s %s \n", planToKnowledge((*it)).c_str(), planToKnowledge(nodeId).c_str(), level.c_str());
+            ROS_INFO("[Request] we failed to request to set knowledge in Robot model: %s %s %s \n", (*it).c_str(), planToKnowledgeParam(nodeId).c_str(), level.c_str());
             success = false;
         }
 
