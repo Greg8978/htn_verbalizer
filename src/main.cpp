@@ -80,9 +80,18 @@ std::string planToKnowledgeParam(unsigned int id) {
 
     // Some knowledge apply to class of objects, other on object itself
 
-    for (std::vector<std::string>::iterator it = plan_->getNode(id)->getParameters().begin(); it != plan_->getNode(id)->getParameters().end(); ++it)
-        ss << (*it) << "-";
-    return ss.str();
+    for (std::vector<std::string>::iterator it = plan_->getNode(id)->getParameters().begin(); it != plan_->getNode(id)->getParameters().end(); ++it) {
+        if (plan_->getNode(id)->getName() == "PlaceOnStack" || plan_->getNode(id)->getName() == "Pick") {
+            if (getParameterClass(*it) == "Cubes") {
+                ss << getParameterClass((*it));
+            } else {
+                ss << (*it) << "-";
+            }
+        } else {
+            ss << (*it) << "-";
+        }
+        return ss.str();
+    }
 }
 
 std::string planNamesToSpeech(std::string plan) {
