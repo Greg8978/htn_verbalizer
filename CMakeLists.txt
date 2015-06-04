@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   sound_play
   std_msgs
   genmsg
+  toaster_msgs
 )
 
 find_package(msgconnector REQUIRED)
@@ -63,6 +64,7 @@ find_package(Boost REQUIRED COMPONENTS regex system)
    FILES
    Empty.srv
    NodeParam.srv
+   Name.srv
  )
 
 ## Generate actions in the 'action' folder
@@ -76,6 +78,7 @@ find_package(Boost REQUIRED COMPONENTS regex system)
  generate_messages(
    DEPENDENCIES
    std_msgs
+   toaster_msgs
  )
 
 ###################################

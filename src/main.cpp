@@ -9,6 +9,7 @@
 #include <queue>
 #include "htn_verbalizer/Empty.h"
 #include "htn_verbalizer/NodeParam.h"
+#include "htn_verbalizer/Name.h"
 
 #include "toaster_msgs/GetFactValue.h"
 #include "toaster_msgs/AddFact.h"
@@ -539,6 +540,17 @@ bool verbalizeCurrentPlan(htn_verbalizer::Empty::Request &req,
 
 }
 
+bool setHatpClient(htn_verbalizer::Name::Request &req,
+        htn_verbalizer::Name::Response & res) {
+
+    if (req.name == "")
+        ROS_INFO("[htn_verbalizer][setHatpPlan][WARNING] no client name given!");
+    else {
+        clientName_ = req.name;
+    }
+
+}
+
 int main(int argc, char ** argv) {
 
 
@@ -578,6 +590,9 @@ int main(int argc, char ** argv) {
     ros::ServiceServer serviceEndExec = node.advertiseService("htn_verbalizer/end_execution", endExecution);
     ROS_INFO("[Request] Ready to end execution.");
 
+    ros::ServiceServer servicesetHatp = node.advertiseService("htn_verbalizer/set_hatp_client", setHatpClient);
+    ROS_INFO("[Request] Ready to set hatp client.");
+    
 
     // Set this in a ros service?
     ros::Rate loop_rate(30);
