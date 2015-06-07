@@ -9,6 +9,7 @@
 #include <queue>
 #include "htn_verbalizer/Empty.h"
 #include "htn_verbalizer/NodeParam.h"
+#include "htn_verbalizer/Name.h"
 
 #include "toaster_msgs/GetFactValue.h"
 #include "toaster_msgs/AddFact.h"
@@ -55,7 +56,7 @@ std::string getParameterClass(std::string object) {
         return object;
 }
 
-std::string planToKnowledge(std::string name) {
+/*std::string planToKnowledge(std::string name) {
     if (name == "Human_1")
         return "HERAKLES_HUMAN1";
     else if (name == "Human_2")
@@ -70,9 +71,9 @@ std::string planToKnowledge(std::string name) {
         return "GreenCube";
     else
         return name;
-}
+}*/
 
-std::string planToKnowledge(unsigned int id) {
+/*std::string planToKnowledge(unsigned int id) {
     std::stringstream ss;
 
     // Some knowledge apply to class of objects, other on object itself
@@ -86,6 +87,27 @@ std::string planToKnowledge(unsigned int id) {
         ss << planToKnowledge(plan_->getNode(id)->getParameters()[2]) << "_" << getParameterClass(plan_->getNode(id)->getParameters()[1]);
     else
         ss << plan_->getNode(id)->getName();
+    return ss.str();
+}*/
+
+std::string planToKnowledgeParam(unsigned int id) {
+    std::stringstream ss;
+    ss << "";
+    // Some knowledge apply to class of objects, other on object itself
+
+    for (int i = 0; i < plan_->getNode(id)->getParameters().size(); ++i) {
+        if ((plan_->getNode(id)->getParameters()[i]) == "HERAKLES_HUMAN1")
+            continue;
+        if (plan_->getNode(id)->getName() == "PlaceOnStack" || plan_->getNode(id)->getName() == "Pick") {
+            if (getParameterClass(plan_->getNode(id)->getParameters()[i]) == "Cubes") {
+                ss << getParameterClass(plan_->getNode(id)->getParameters()[i]) << "-";
+            } else {
+                ss << plan_->getNode(id)->getParameters()[i] << "-";
+            }
+        } else {
+            ss << plan_->getNode(id)->getParameters()[i] << "-";
+        }
+    }
     return ss.str();
 }
 
@@ -125,18 +147,18 @@ std::string nodeToText(unsigned int id) {
 
 std::string getSubject(std::vector<std::string> agents) {
     if (agents.size() < 2)
-        if (agents[0] == "Robot")
+        if (agents[0] == "PR2_ROBOT")
             return "I ";
         else
             return "You ";
-    else if (std::find(agents.begin(), agents.end(), "Robot") != agents.end())
+    else if (std::find(agents.begin(), agents.end(), "PR2_ROBOT") != agents.end())
         return "We ";
     else
         return "You ";
 }
 
 // We decide here:
-// -> to return 1.0 if it concerns only Robot
+// -> to return 1.0 if it concerns only PR2_ROBOT
 // -> to return the lower knowledge value if it concerns several agents
 
 std::string getKnowledge(unsigned int id) {
@@ -146,13 +168,14 @@ std::string getKnowledge(unsigned int id) {
     std::string agent;
 
     std::string curKnowledge = "unknown";
+    std::string params = planToKnowledgeParam(id);
 
     if (agents.size() == 1) {
-        if (agents[0] == "Robot") {
+        if (agents[0] == "PR2_ROBOT") {
             return "theoretical";
         }
     } else {
-        std::vector<std::string>::iterator it = std::find(agents.begin(), agents.end(), "Robot");
+        std::vector<std::string>::iterator it = std::find(agents.begin(), agents.end(), "PR2_ROBOT");
         if (it != agents.end()) {
             agents.erase(it);
         }
@@ -161,11 +184,12 @@ std::string getKnowledge(unsigned int id) {
     for (std::vector<std::string>::iterator it = agents.begin(); it != agents.end(); ++it) {
 
         toaster_msgs::GetFactValue getKnowledge;
-        getKnowledge.request.agentName = planToKnowledge("Robot");
-        getKnowledge.request.reqFact.property = planToKnowledge(id);
-        getKnowledge.request.reqFact.subjectName = planToKnowledge((*it));
+        getKnowledge.request.agentName = "pr2";
+        getKnowledge.request.reqFact.property = node->getName();
+        getKnowledge.request.reqFact.subjectName = (*it);
+        getKnowledge.request.reqFact.targetName = params;
 
-        ROS_INFO("[Request] we request knowledge in Robot model: %s %s \n", planToKnowledge((*it)).c_str(), planToKnowledge(id).c_str());
+        ROS_INFO("[Request] we request knowledge in PR2_ROBOT model: %s %s \n", (*it).c_str(), params.c_str());
 
         if (getKnowledgeClient_->call(getKnowledge)) {
             // If this agent has less knowledge, we keep his level
@@ -177,7 +201,7 @@ std::string getKnowledge(unsigned int id) {
                 return "unknown";
         }
     }
-    ROS_INFO("[Request] we got knowledge in Robot model: %s \n", curKnowledge.c_str());
+    ROS_INFO("[Request] we got knowledge in PR2_ROBOT model: %s \n", curKnowledge.c_str());
     return curKnowledge;
 }
 
@@ -185,17 +209,19 @@ bool updateKnowledge(std::string level, unsigned int nodeId) {
     hatpNode* node = plan_->getNode(nodeId);
     std::vector<std::string> agents = node->getAgents();
     bool success = true;
+    std::string params = planToKnowledgeParam(nodeId);
 
     for (std::vector<std::string>::iterator it = agents.begin(); it != agents.end(); ++it) {
 
-        if ((*it) == "Robot")
+        if ((*it) == "PR2_ROBOT")
             continue;
 
         toaster_msgs::AddFact setKnowledge;
-        setKnowledge.request.fact.property = planToKnowledge(nodeId);
+        setKnowledge.request.fact.property = node->getName();
         setKnowledge.request.fact.propertyType = "knowledge";
         setKnowledge.request.fact.subProperty = "action";
-        setKnowledge.request.fact.subjectName = planToKnowledge((*it));
+        setKnowledge.request.fact.subjectName = (*it);
+        setKnowledge.request.fact.targetName = params;
         setKnowledge.request.fact.stringValue = level;
 
         if (setKnowledgeClient_->call(setKnowledge)) {
@@ -309,8 +335,6 @@ void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy) 
             }
         }
 
-        //All children nodes were explained, update db:
-        updateKnowledge("theoretical", daddy);
 
         while (!queueDaddies.empty()) {
             // TODO: lower the threshold with the depth?
@@ -320,6 +344,9 @@ void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy) 
             queueChildren.pop();
             queueDaddies.pop();
         }
+
+        //All children nodes were explained, update db:
+        updateKnowledge("theoretical", daddy);
     }
 }
 
@@ -380,7 +407,7 @@ bool initSpeech(htn_verbalizer::Empty::Request &req,
         agents = plan_->getTree()->getRootNode()->getAgents();
 
         for (std::vector<std::string>::iterator it = agents.begin(); it != agents.end(); ++it) {
-            if ((*it) != "Robot")
+            if ((*it) != "PR2_ROBOT")
                 ss << "Hello " << planNamesToSpeech((*it)) << "! ";
         }
 
@@ -436,7 +463,7 @@ bool rePlan(htn_verbalizer::NodeParam::Request &req,
             delete plan_;
             plan_ = new hatpPlan(answer);
 
-            ss.clear();
+            ss.flush();
 
             ss << " I found a way to " << planNamesToSpeech(plan_->getTree()->getRootNode()->getName())
                     << " from the current situation ";
@@ -484,7 +511,7 @@ bool endExecution(htn_verbalizer::NodeParam::Request &req,
     } else {
 
         std::stringstream ss;
-        if (plan_->getNode(req.node)->getAgents().front() != "Robot")
+        if (plan_->getNode(req.node)->getAgents().front() != "PR2_ROBOT")
             ss << " I see that ";
 
         ss << getSubject(plan_->getNode(req.node)->getAgents()) << " finished to " << planNamesToSpeech(plan_->getNode(req.node)->getName());
@@ -505,7 +532,19 @@ bool verbalizeCurrentPlan(htn_verbalizer::Empty::Request &req,
 
 }
 
+bool setHatpClient(htn_verbalizer::Name::Request &req,
+        htn_verbalizer::Name::Response & res) {
+
+    if (req.name == "")
+        ROS_INFO("[htn_verbalizer][setHatpPlan][WARNING] no client name given!");
+    else {
+        clientName_ = req.name;
+    }
+
+}
+
 int main(int argc, char ** argv) {
+
 
     ros::init(argc, argv, "htn_verbalizer");
 
@@ -548,6 +587,8 @@ int main(int argc, char ** argv) {
     ros::ServiceServer serviceEndExec = node.advertiseService("htn_verbalizer/end_execution", endExecution);
     ROS_INFO("[Request] Ready to end execution.");
 
+    ros::ServiceServer servicesetHatp = node.advertiseService("htn_verbalizer/set_hatp_client", setHatpClient);
+    ROS_INFO("[Request] Ready to set hatp client.");
 
     // Set this in a ros service?
     ros::Rate loop_rate(30);
