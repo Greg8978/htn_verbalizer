@@ -107,8 +107,8 @@ std::string planNamesToSpeech(std::string plan) {
         return "green cube ";
     else if (plan == "Stickers")
         return "put stickers on ";
-    else if (plan == "Human_1")
-        return "human ";
+    else if (plan == "ApplyOperation")
+        return "process ";
     else
         return plan;
 }
@@ -117,11 +117,17 @@ std::string nodeToText(unsigned int id) {
     std::stringstream ss;
 
     if (plan_->getNode(id)->getName() == "Handle")
-        ss << "handl the " << planNamesToSpeech(plan_->getNode(id)->getParameters()[1]);
+        ss << "handle the " << planNamesToSpeech(plan_->getNode(id)->getParameters()[1]);
+    else if (plan_->getNode(id)->getName() == "Place")
+        ss << "place the " << planNamesToSpeech(plan_->getNode(id)->getParameters()[1]) << " on the " << planNamesToSpeech(plan_->getNode(id)->getParameters()[2]);
     else if (plan_->getNode(id)->getName() == "PlaceOnStack")
         ss << "place the " << planNamesToSpeech(plan_->getNode(id)->getParameters()[1]) << " on the stack ";
     else if (plan_->getNode(id)->getName() == "Pick")
         ss << "pick the " << planNamesToSpeech(plan_->getNode(id)->getParameters()[1]);
+    else if (plan_->getNode(id)->getName() == "Apply")
+        ss << planNamesToSpeech(plan_->getNode(id)->getParameters()[2]) << " the " << planNamesToSpeech(plan_->getNode(id)->getParameters()[1]);
+    else if (plan_->getNode(id)->getName() == "ApplyOperation")
+        ss << planNamesToSpeech(plan_->getNode(id)->getName()) << " the " << planNamesToSpeech(plan_->getNode(id)->getParameters()[1]);
     else if (plan_->getNode(id)->getName() == "HandleOperation")
         ss << planNamesToSpeech(plan_->getNode(id)->getParameters()[2]) << " the " << planNamesToSpeech(plan_->getNode(id)->getParameters()[1]);
     else if (plan_->getNode(id)->getName() == "ApplyFirstOperations")
@@ -463,7 +469,7 @@ bool rePlan(htn_verbalizer::NodeParam::Request &req,
             delete plan_;
             plan_ = new hatpPlan(answer);
 
-            ss.clear();
+            ss.flush();
 
             ss << " I found a way to " << planNamesToSpeech(plan_->getTree()->getRootNode()->getName())
                     << " from the current situation ";
@@ -592,7 +598,7 @@ int main(int argc, char ** argv) {
 
     ros::ServiceServer servicesetHatp = node.advertiseService("htn_verbalizer/set_hatp_client", setHatpClient);
     ROS_INFO("[Request] Ready to set hatp client.");
-    
+
 
     // Set this in a ros service?
     ros::Rate loop_rate(30);
