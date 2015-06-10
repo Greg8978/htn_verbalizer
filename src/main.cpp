@@ -180,7 +180,7 @@ std::string getKnowledge(unsigned int id) {
         getKnowledge.request.reqFact.subjectName = (*it);
         getKnowledge.request.reqFact.targetName = params;
 
-        ROS_INFO("[Request] we request knowledge in PR2_ROBOT model: %s %s \n", (*it).c_str(), params.c_str());
+        ROS_INFO("[Request] we request knowledge in PR2_ROBOT model: %s %s %s \n", (*it).c_str(), node->getName().c_str(), params.c_str());
 
         if (getKnowledgeClient_->call(getKnowledge)) {
             // If this agent has less knowledge, we keep his level
