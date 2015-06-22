@@ -35,13 +35,17 @@ std::string initPlanNamesToSpeech() {
 }
  */
 
-std::string getParameterClass(std::string object) {
+/**
+ * returns the class of a parameter
+ * @param param parameter from which we want the class
+ * @return 
+ */
+std::string getParameterClass(std::string param) {
     if ("Green_Cube" || "Blue_Cube" || "Red_Cube")
         return "Cubes";
     else
-        return object;
+        return param;
 }
-
 /*std::string planToKnowledge(std::string name) {
     if (name == "Human_1")
         return "HERAKLES_HUMAN1";
@@ -76,6 +80,11 @@ std::string getParameterClass(std::string object) {
     return ss.str();
 }*/
 
+/**
+ * 
+ * @param id
+ * @return 
+ */
 std::string planToKnowledgeParam(unsigned int id) {
     std::stringstream ss;
     ss << "";
@@ -97,6 +106,11 @@ std::string planToKnowledgeParam(unsigned int id) {
     return ss.str();
 }
 
+/**
+ * 
+ * @param plan
+ * @return 
+ */
 std::string planNamesToSpeech(std::string plan) {
 
     if (plan == "Blue_Cube")
@@ -113,6 +127,11 @@ std::string planNamesToSpeech(std::string plan) {
         return plan;
 }
 
+/**
+ * 
+ * @param id
+ * @return 
+ */
 std::string nodeToText(unsigned int id) {
     std::stringstream ss;
 
@@ -137,6 +156,11 @@ std::string nodeToText(unsigned int id) {
     return ss.str();
 }
 
+/**
+ * 
+ * @param agents
+ * @return 
+ */
 std::string getSubject(std::vector<std::string> agents) {
     if (agents.size() < 2)
         if (agents[0] == "PR2_ROBOT")
@@ -153,6 +177,11 @@ std::string getSubject(std::vector<std::string> agents) {
 // -> to return 1.0 if it concerns only PR2_ROBOT
 // -> to return the lower knowledge value if it concerns several agents
 
+/**
+ * 
+ * @param id
+ * @return 
+ */
 std::string getKnowledge(unsigned int id) {
     //TODO: implement this function!
     hatpNode* node = plan_->getNode(id);
@@ -196,6 +225,12 @@ std::string getKnowledge(unsigned int id) {
     return curKnowledge;
 }
 
+/**
+ * 
+ * @param level
+ * @param nodeId
+ * @return 
+ */
 bool updateKnowledge(std::string level, unsigned int nodeId) {
     hatpNode* node = plan_->getNode(nodeId);
     std::vector<std::string> agents = node->getAgents();
@@ -226,6 +261,11 @@ bool updateKnowledge(std::string level, unsigned int nodeId) {
     return success;
 }
 
+/**
+ * 
+ * @param agents
+ * @param task
+ */
 void tellTask(std::vector<std::string> agents, std::string task) {
     std::stringstream ss;
 
@@ -235,6 +275,13 @@ void tellTask(std::vector<std::string> agents, std::string task) {
     printf("[saying] %s\n", ss.str().c_str());
 }
 
+/**
+ * 
+ * @param currentNodes
+ * @param daddy
+ * @param stillNeeded
+ * @return 
+ */
 std::vector<unsigned int> processNodesOnce(std::vector<unsigned int> currentNodes, unsigned int daddy, bool& stillNeeded) {
     std::vector<unsigned int> processedNodes;
 
@@ -261,6 +308,12 @@ std::vector<unsigned int> processNodesOnce(std::vector<unsigned int> currentNode
     return processedNodes;
 }
 
+/**
+ * 
+ * @param currentNodes
+ * @param daddy
+ * @return 
+ */
 std::vector<unsigned int> processNodes(std::vector<unsigned int> currentNodes, unsigned int daddy) {
     std::vector<unsigned int> processedNodes;
     bool processStillNeeded = false;
@@ -274,6 +327,11 @@ std::vector<unsigned int> processNodes(std::vector<unsigned int> currentNodes, u
     return processedNodes;
 }
 
+/**
+ * 
+ * @param currentNodes
+ * @param daddy
+ */
 void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy) {
     //TODO: Implement this function!
     if (!currentNodes.empty()) {
@@ -350,6 +408,11 @@ void verbalizeNodes(std::vector<unsigned int> currentNodes, unsigned int daddy) 
     }
 }
 
+/**
+ * 
+ * @param n
+ * @return 
+ */
 bool verbalizeTree(unsigned int n) {
     if (plan_ == NULL)
         return false;
@@ -369,6 +432,12 @@ bool verbalizeTree(unsigned int n) {
     }
 }
 
+/**
+ * 
+ * @param req
+ * @param res
+ * @return 
+ */
 bool initPlan(htn_verbalizer::Empty::Request &req,
         htn_verbalizer::Empty::Response & res) {
 
@@ -397,6 +466,12 @@ bool initPlan(htn_verbalizer::Empty::Request &req,
     return true;
 }
 
+/**
+ * 
+ * @param req
+ * @param res
+ * @return 
+ */
 bool initSpeech(htn_verbalizer::Empty::Request &req,
         htn_verbalizer::Empty::Response & res) {
 
@@ -425,6 +500,12 @@ bool initSpeech(htn_verbalizer::Empty::Request &req,
     }
 }
 
+/**
+ * 
+ * @param req
+ * @param res
+ * @return 
+ */
 bool rePlan(htn_verbalizer::NodeParam::Request &req,
         htn_verbalizer::NodeParam::Response & res) {
 
@@ -493,6 +574,12 @@ bool rePlan(htn_verbalizer::NodeParam::Request &req,
     }
 }
 
+/**
+ * 
+ * @param req
+ * @param res
+ * @return 
+ */
 bool initExecution(htn_verbalizer::NodeParam::Request &req,
         htn_verbalizer::NodeParam::Response & res) {
 
@@ -512,6 +599,12 @@ bool initExecution(htn_verbalizer::NodeParam::Request &req,
     return true;
 }
 
+/**
+ * 
+ * @param req
+ * @param res
+ * @return 
+ */
 bool endExecution(htn_verbalizer::NodeParam::Request &req,
         htn_verbalizer::NodeParam::Response & res) {
     std::stringstream ss;
@@ -535,6 +628,12 @@ bool endExecution(htn_verbalizer::NodeParam::Request &req,
     return true;
 }
 
+/**
+ * 
+ * @param req
+ * @param res
+ * @return 
+ */
 bool verbalizeCurrentPlan(htn_verbalizer::Empty::Request &req,
         htn_verbalizer::Empty::Response & res) {
 
@@ -546,6 +645,12 @@ bool verbalizeCurrentPlan(htn_verbalizer::Empty::Request &req,
 
 }
 
+/**
+ * 
+ * @param req
+ * @param res
+ * @return 
+ */
 bool setHatpClient(htn_verbalizer::Name::Request &req,
         htn_verbalizer::Name::Response & res) {
 
@@ -557,6 +662,12 @@ bool setHatpClient(htn_verbalizer::Name::Request &req,
 
 }
 
+/**
+ * 
+ * @param argc
+ * @param argv
+ * @return 
+ */
 int main(int argc, char ** argv) {
 
 
@@ -609,4 +720,5 @@ int main(int argc, char ** argv) {
         loop_rate.sleep();
     }
 
+    return 0;
 }
