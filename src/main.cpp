@@ -1,6 +1,5 @@
 #include <iostream>
 
-#include <sound_play/sound_play.h>
 #include <msgClient.hh>
 #include <hatpPlan.hh>
 
@@ -225,9 +224,9 @@ bool updateKnowledge(std::string level, unsigned int nodeId) {
         setKnowledge.request.fact.stringValue = level;
 
         if (setKnowledgeClient_->call(setKnowledge)) {
-            ROS_INFO("[Request] we request to set knowledge in Robot model: %s %s %s \n", planToKnowledge((*it)).c_str(), planToKnowledge(nodeId).c_str(), level.c_str());
+            ROS_INFO("[Request] we request to set knowledge in Robot model: %s %s %s \n", (*it).c_str(), node->getName().c_str(), level.c_str());
         } else {
-            ROS_INFO("[Request] we failed to request to set knowledge in Robot model: %s %s %s \n", planToKnowledge((*it)).c_str(), planToKnowledge(nodeId).c_str(), level.c_str());
+            ROS_INFO("[Request] we failed to request to set knowledge in Robot model: %s %s %s \n", (*it).c_str(), node->getName().c_str(), level.c_str());
             success = false;
         }
 

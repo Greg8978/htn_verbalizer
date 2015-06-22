@@ -9,7 +9,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} $ENV{ROBOTPKG_BASE}/share/cmake/Modul
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
-  sound_play
   std_msgs
   genmsg
   toaster_msgs
@@ -20,7 +19,7 @@ find_package(libhatp REQUIRED)
 find_package(Boost REQUIRED COMPONENTS regex system)
 
 ## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
+#find_package(Boost REQUIRED COMPONENTS system)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -109,6 +108,7 @@ include_directories(
   ${msgconnector_INCLUDE_DIRS}
   ${libhatp_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
+  $ENV{ROBOTPKG_BASE}/include
 )
 
 ## Declare a cpp library
