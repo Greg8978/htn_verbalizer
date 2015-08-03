@@ -204,10 +204,10 @@ std::string getKnowledge(unsigned int id) {
     for (std::vector<std::string>::iterator it = agents.begin(); it != agents.end(); ++it) {
 
         toaster_msgs::GetFactValue getKnowledge;
-        getKnowledge.request.agentName = "pr2";
+        getKnowledge.request.agentId = "pr2";
         getKnowledge.request.reqFact.property = node->getName();
-        getKnowledge.request.reqFact.subjectName = (*it);
-        getKnowledge.request.reqFact.targetName = params;
+        getKnowledge.request.reqFact.subjectId = (*it);
+        getKnowledge.request.reqFact.targetId = params;
 
         ROS_INFO("[Request] we request knowledge in PR2_ROBOT model: %s %s %s \n", (*it).c_str(), node->getName().c_str(), params.c_str());
 
@@ -246,8 +246,8 @@ bool updateKnowledge(std::string level, unsigned int nodeId) {
         setKnowledge.request.fact.property = node->getName();
         setKnowledge.request.fact.propertyType = "knowledge";
         setKnowledge.request.fact.subProperty = "action";
-        setKnowledge.request.fact.subjectName = (*it);
-        setKnowledge.request.fact.targetName = params;
+        setKnowledge.request.fact.subjectId = (*it);
+        setKnowledge.request.fact.targetId = params;
         setKnowledge.request.fact.stringValue = level;
 
         if (setKnowledgeClient_->call(setKnowledge)) {
